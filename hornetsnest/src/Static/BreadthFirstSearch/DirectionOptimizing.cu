@@ -198,7 +198,8 @@ std::cout << "Set Params started";
    queue.insert(bfs_source);               // insert bfs source in the frontier
    gpu::memsetZero(d_distances + bfs_source);  //reset source distance
    *scout_count = hornet.max_degree();
-   edges_to_check = is_directed ? hornet.nE() : 2 * hornet.nE();
+   //edges_to_check = is_directed ? hornet.nE() : 2 * hornet.nE();
+   edges_to_check = hornet.nE();
 }
 
 void BfsDirOpt::run() {
@@ -219,6 +220,7 @@ void BfsDirOpt::run() {
             queue.swap();
             do {
                 old_next_size = *next_size;
+                std::cout<<"BU, Frontier Size: "<<*next_size<<std::endl;
                 *next_size = 0;
                 forAllVertices(hornet, BFSBUOperator { p_parent, f_frontier, n_next,
                                 next_size, hornet.csr_offsets(), hornet.csr_edges(),
@@ -233,7 +235,6 @@ void BfsDirOpt::run() {
                 forAllnumV(hornet, [=] __device__ (int i) { next[i] = 0; } );
                     //forAllnumV(hornet, [=] __device__ (int i){ frontier[i] = next[i]; } );
                 frontier_size = *next_size;
-                std::cout<<"BU, Frontier Size: "<<*next_size<<std::endl;
                 //std::cout<<"Old next Size: "<<old_next_size<<std::endl;
                 //std::cout<<"N vertices / beta: "<<hornet.nV() / beta<<std::endl;
                 //gpu::printArray(n_next, hornet.nV());
@@ -246,7 +247,7 @@ void BfsDirOpt::run() {
 	    forAllnumV(hornet, BitmapToQueue { f_frontier, queue } );
 //std::cout<<"After BitmapToQueue, Frontier Size: "<<frontier_size<<", Queue Size: "<<queue.size()<<std::endl;
             queue.swap();
-//std::cout<<"After Swap, Frontier Size: "<<frontier_size<<", Queue Size: "<<queue.size()<<std::endl;	    
+//std::cout<<"After Swap, Frontier Size: "<<frontier_size<<", Queue Size: "<<queue.size()<<std::endl;
 *scout_count = 1;
         }
         else{
@@ -254,6 +255,7 @@ void BfsDirOpt::run() {
         //for all edges in "queue" applies the operator "BFSOperator" by using
         //the load balancing algorithm instantiated in "load_balancing"
             edges_to_check -= *scout_count;
+                        std::cout<<"TD, Queue Size: "<<queue.size()<<std::endl;
             *scout_count = 0;
             forAllEdges(hornet, queue,
                         BFSTDOperator { queue, p_parent, scout_count, hornet.device_degrees(), d_distances, current_level },
@@ -262,7 +264,6 @@ void BfsDirOpt::run() {
             //std::cout<<"TD, Queue Size: "<<queue.size()<<std::endl;
             current_level++;
             queue.swap();
-            std::cout<<"TD, Queue Size: "<<queue.size()<<std::endl;
 	 }
     }
 }
