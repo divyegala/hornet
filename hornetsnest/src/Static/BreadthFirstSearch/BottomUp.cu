@@ -231,7 +231,7 @@ bool BfsBottomUp::validate() {
     bfs.run(bfs_source);
 //std::cout<<"GPU Answer: "<<std::endl;
 //gpu::printArray(p_parent, hornet.nV());
-    auto h_parent = bfs.result_parents();
+    auto h_parent = bfs.result();
 //std::cout<<"CPU Answer: "<<std::endl;
 //for(int i = 0; i < graph.nV(); i++) {
 //	std::cout<<" "<<h_parent[i];
