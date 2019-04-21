@@ -1,11 +1,11 @@
 /**
- * @brief Top-Down implementation of Breadth-first Search by using C++11-Style
+ * @brief DirectionOptimizing implementation of Breadth-first Search by using C++11-Style
  *        APIs
- * @author Federico Busato                                                  <br>
- *         Univerity of Verona, Dept. of Computer Science                   <br>
- *         federico.busato@univr.it
- * @date September, 2017
- * @version v2
+ * @author Divye Gala                                                  <br>
+ *         Georgia Institute Of Technlogy, Dept. of Computer Science                   <br>
+ *         divye.gala@gatech.edu
+ * @date April, 2019
+ * @version v1
  *
  * @copyright Copyright © 2017 Hornet. All rights reserved.
  *
@@ -71,13 +71,6 @@ private:
     dist_t* d_distances   { nullptr };
     vid_t   bfs_source    { 0 };
     dist_t  current_level { 0 };
-    dist_t* p_parent { nullptr };
-    dist_t* f_frontier { nullptr };
-    dist_t* n_next { nullptr };
-    dist_t frontier_size {0};
-    dist_t* next_size {nullptr};
-    dist_t* scout_count {nullptr};
-    dist_t edges_to_check {0};
     bool is_directed {false};
 };
 
