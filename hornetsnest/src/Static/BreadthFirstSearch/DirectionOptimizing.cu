@@ -37,6 +37,7 @@
 #include "Auxilary/DuplicateRemoving.cuh"
 #include <Graph/GraphStd.hpp>
 #include <Graph/BFS.hpp>
+#include <chrono>
 
 namespace hornets_nest {
 
@@ -48,20 +49,22 @@ const dist_t INF = std::numeric_limits<dist_t>::max();
 ///////////////
 
 struct BFSBUOperator {
-    const eoff_t* in_offsets;
-    const vid_t* in_edges;
+    //HornetGraph& hornet;
+    //const eoff_t* in_offsets;
+    //const vid_t* in_edges;
     dist_t* d_distances;
     dist_t current_level;
     TwoLevelQueue<vid_t> queue;
 
     OPERATOR(Vertex& vertex) {
-    eoff_t start = in_offsets[vertex.id()], end = in_offsets[vertex.id()] + vertex.degree();
-        for(eoff_t i = start; i < end; i++) {
-            vid_t possible_parent = in_edges[i];
-	//printf("In for loop, child id: %d, parent id: %d, i: %d\n", vertex.id(), possible_parent, i);
+    vid_t vertex_id = vertex.id();
+    eoff_t start = 0, end = vertex.degree();
+        for(eoff_t i = 0; i < end; i++) {
+            vid_t possible_parent = vertex.edge(i).dst_id();
+	//printf("In for loop, child id: %d, parent id: %d, i: %d\n", vertex_id, possible_parent, i);
             if(d_distances[possible_parent] == current_level - 1) {
-                d_distances[vertex.id()] = current_level;
-                queue.insert(vertex.id());
+                d_distances[vertex_id] = current_level;
+                queue.insert(vertex_id);
                 break;
             }
         }
@@ -127,7 +130,7 @@ void BfsDirOpt::reset() {
 void BfsDirOpt::set_parameters(vid_t source) {
 std::cout << "Set Params started";
    bfs_source = source;
-   auto parent = p_parent;
+   //auto parent = p_parent;
    queue.insert(bfs_source);               // insert bfs source in the frontier
    gpu::memsetZero(d_distances + bfs_source);  //reset source distance
 }
@@ -142,28 +145,37 @@ void BfsDirOpt::run() {
     // }
 //gpu::memsetZero(d_distances + bfs_source);
     while(queue.size() > 0) {
-        if((hornet.nV() / queue.size()) < 5) {
-            auto distances = d_distances;
+        if((hornet.nV() / queue.size()) < 20) {
+            auto start = std::chrono::high_resolution_clock::now();
+	    auto distances = d_distances;
             forAllnumV(hornet, [=] __device__ (int i) {
                 if(distances[i] == INF) {
                     queue.insert(i);
                 }
             });
             queue.swap();
-            forAllVertices(hornet, queue, BFSBUOperator{ hornet.csr_offsets(),
-                           hornet.csr_edges(), d_distances, current_level, queue });
+            forAllVertices(hornet, queue, BFSBUOperator{d_distances, current_level, queue });
             current_level++;
             queue.swap();
             std::cout<<"BU, Frontier Size: "<<queue.size()<<std::endl;
-        }
+       	    auto end = std::chrono::high_resolution_clock::now();
+	    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	    std::cout<<"Time: "<<duration.count()<<std::endl;
+	 }
         else {
+	    auto start = std::chrono::high_resolution_clock::now();
             forAllEdges(hornet, queue,
                         BFSTDOperator { queue, d_distances, current_level },
                         load_balancing);
             current_level++;
             queue.swap();
             std::cout<<"TD, Queue Size: "<<queue.size()<<std::endl;
-        }
+	    const vid_t* tmp1 = hornet.csr_offsets();
+	    const eoff_t* tmp2 = hornet.csr_edges();
+	    auto end = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	    std::cout<<"Time: "<<duration.count()<<std::endl;
+	}
     }
 }
 
