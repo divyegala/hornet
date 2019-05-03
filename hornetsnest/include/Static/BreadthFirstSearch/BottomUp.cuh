@@ -71,11 +71,6 @@ private:
     dist_t* d_distances   { nullptr };
     vid_t   bfs_source    { 0 };
     dist_t  current_level { 0 };
-    dist_t* p_parent { nullptr };
-    dist_t* f_frontier { nullptr };
-    dist_t* n_next { nullptr };
-    dist_t frontier_size {0};
-    dist_t* next_size {nullptr};
 };
 
 } // namespace hornets_nest

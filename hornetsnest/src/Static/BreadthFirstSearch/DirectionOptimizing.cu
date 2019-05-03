@@ -2,7 +2,7 @@
  * @author Divye Gala                                                  <br>
  *         Georgia Institute Of Technlogy, Dept. of Computer Science                   <br>
  *         divye.gala@gatech.edu
- * @date April, 2019
+ * @date May, 2019
  * @version v1
  *
  * @copyright Copyright © 2017 Hornet. All rights reserved.
@@ -37,7 +37,6 @@
 #include "Auxilary/DuplicateRemoving.cuh"
 #include <Graph/GraphStd.hpp>
 #include <Graph/BFS.hpp>
-#include <chrono>
 
 namespace hornets_nest {
 
@@ -49,9 +48,6 @@ const dist_t INF = std::numeric_limits<dist_t>::max();
 ///////////////
 
 struct BFSBUOperator {
-    //HornetGraph& hornet;
-    //const eoff_t* in_offsets;
-    //const vid_t* in_edges;
     dist_t* d_distances;
     dist_t current_level;
     TwoLevelQueue<vid_t> queue;
@@ -96,7 +92,7 @@ BfsDirOpt::BfsDirOpt(HornetGraph& hornet) :
                                  is_directed(false) {
     //std::cout<<"HI"<<std::endl;
     gpu::allocate(d_distances, hornet.nV());
-    std::cout<<"Constructor Finished"<<std::endl;
+    // std::cout<<"Constructor Finished"<<std::endl;
     reset();
 }
 
@@ -108,7 +104,7 @@ BfsDirOpt::BfsDirOpt(HornetGraph& hornet, HornetGraph& hornet_inverse) :
                                 is_directed(true) {
     // std::cout<<"HI"<<std::endl;
    gpu::allocate(d_distances, hornet.nV());
-   std::cout<<"Constructor Finished"<<std::endl;
+   // std::cout<<"Constructor Finished"<<std::endl;
    reset();
 }
 
@@ -117,18 +113,18 @@ BfsDirOpt::~BfsDirOpt() {
 }
 
 void BfsDirOpt::reset() {
-    std::cout<<"Reset Started"<<std::endl;
+    // std::cout<<"Reset Started"<<std::endl;
     current_level = 1;
     queue.clear();
 
     auto distances = d_distances;
     forAllnumV(hornet, [=] __device__ (int i){ distances[i] = INF; } );
 
-    std::cout<<"Reset Finished"<<std::endl;
+    // std::cout<<"Reset Finished"<<std::endl;
 }
 
 void BfsDirOpt::set_parameters(vid_t source) {
-std::cout << "Set Params started";
+// std::cout << "Set Params started";
    bfs_source = source;
    //auto parent = p_parent;
    queue.insert(bfs_source);               // insert bfs source in the frontier
@@ -146,8 +142,8 @@ void BfsDirOpt::run() {
 //gpu::memsetZero(d_distances + bfs_source);
     while(queue.size() > 0) {
         if((hornet.nV() / queue.size()) < 20) {
-            auto start = std::chrono::high_resolution_clock::now();
-	    auto distances = d_distances;
+            // auto start = std::chrono::high_resolution_clock::now();
+	        auto distances = d_distances;
             forAllnumV(hornet, [=] __device__ (int i) {
                 if(distances[i] == INF) {
                     queue.insert(i);
@@ -158,24 +154,24 @@ void BfsDirOpt::run() {
             current_level++;
             queue.swap();
             std::cout<<"BU, Frontier Size: "<<queue.size()<<std::endl;
-       	    auto end = std::chrono::high_resolution_clock::now();
-	    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	    std::cout<<"Time: "<<duration.count()<<std::endl;
+       	    // auto end = std::chrono::high_resolution_clock::now();
+	    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	    // std::cout<<"Time: "<<duration.count()<<std::endl;
 	 }
         else {
-	    auto start = std::chrono::high_resolution_clock::now();
+	    // auto start = std::chrono::high_resolution_clock::now();
             forAllEdges(hornet, queue,
                         BFSTDOperator { queue, d_distances, current_level },
                         load_balancing);
             current_level++;
             queue.swap();
             std::cout<<"TD, Queue Size: "<<queue.size()<<std::endl;
-	    const vid_t* tmp1 = hornet.csr_offsets();
-	    const eoff_t* tmp2 = hornet.csr_edges();
-	    auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	    std::cout<<"Time: "<<duration.count()<<std::endl;
-	}
+	    // const vid_t* tmp1 = hornet.csr_offsets();
+	    // const eoff_t* tmp2 = hornet.csr_edges();
+	    // auto end = std::chrono::high_resolution_clock::now();
+        //     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	    // std::cout<<"Time: "<<duration.count()<<std::endl;
+	   }
     }
 }
 

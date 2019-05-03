@@ -1,9 +1,9 @@
 /**
- * @author Federico Busato                                                  <br>
- *         Univerity of Verona, Dept. of Computer Science                   <br>
- *         federico.busato@univr.it
- * @date September, 2017
- * @version v2
+ * @author Divye Gala                                                  <br>
+ *         Georgia Institute Of Technlogy, Dept. of Computer Science                   <br>
+ *         divye.gala@gatech.edu
+ * @date May, 2019
+ * @version v1
  *
  * @copyright Copyright © 2017 Hornet. All rights reserved.
  *
@@ -47,39 +47,21 @@ const dist_t INF = std::numeric_limits<dist_t>::max();
 // OPERATORS //
 ///////////////
 
-struct BFSOperator {
-    dist_t* p_parent;
-    dist_t* f_frontier;
-    dist_t* n_next;
-    dist_t* next_size;
-    const eoff_t* in_offsets;
-    const vid_t* in_edges;
+struct BFSBUOperator {
+    dist_t* d_distances;
+    dist_t current_level;
+    TwoLevelQueue<vid_t> queue;
 
     OPERATOR(Vertex& vertex) {
-	//std::cout<<"In Operator, vertex id: "<<vertex.id()<<std::endl;
-        //printf("In Operator, vertex id: %d", vertex.id());
-	if (p_parent[vertex.id()] == -1) {
-            // for (auto eit = vertex.begin(); eit != vertex.end(); eit++) {
-            //     if (f_frontier[*eit.dst_id()] == 1) {
-            //         n_next[vertex.id()] = 1;
-            //         next_size++;
-            //         p_parent[vertex.id()] = *eit.dst_id();
-            //         break;
-            //     }
-            // }
-            //printf("In Operator with no parent, vertex id: %d\n", vertex.id());
-	    eoff_t start = in_offsets[vertex.id()], end = in_offsets[vertex.id()] + vertex.degree();
-            for(eoff_t i = start; i < end; i++) {
-                vid_t possible_parent = in_edges[i];
-		//printf("In for loop, child id: %d, parent id: %d, i: %d\n", vertex.id(), possible_parent, i);
-                if(f_frontier[possible_parent] == 1) {
-                    n_next[vertex.id()] = 1;
-                    //++*next_size;
-		    int discard = atomicAdd(next_size, 1);
-                    //printf("Next_Size: %d", *next_size);
-		    p_parent[vertex.id()] = possible_parent;
-                    break;
-                }
+    vid_t vertex_id = vertex.id();
+    eoff_t start = 0, end = vertex.degree();
+        for(eoff_t i = 0; i < end; i++) {
+            vid_t possible_parent = vertex.edge(i).dst_id();
+	//printf("In for loop, child id: %d, parent id: %d, i: %d\n", vertex_id, possible_parent, i);
+            if(d_distances[possible_parent] == current_level - 1) {
+                d_distances[vertex_id] = current_level;
+                queue.insert(vertex_id);
+                break;
             }
         }
     }
@@ -94,10 +76,6 @@ BfsBottomUp::BfsBottomUp(HornetGraph& hornet) :
                                  load_balancing(hornet) {
     //std::cout<<"HI"<<std::endl;
     gpu::allocate(d_distances, hornet.nV());
-    gpu::allocate(p_parent, hornet.nV());
-    gpu::allocate(f_frontier, hornet.nV());
-    gpu::allocate(n_next, hornet.nV());
-    std::cout<<"Constructor Finished"<<std::endl;
     reset();
 }
 
@@ -117,10 +95,6 @@ BfsBottomUp::BfsBottomUp(HornetGraph& hornet) :
 
 BfsBottomUp::~BfsBottomUp() {
     gpu::free(d_distances);
-    gpu::free(p_parent);
-    gpu::free(f_frontier);
-    gpu::free(n_next);
-    gpu::free(next_size);
 }
 
 void BfsBottomUp::reset() {
@@ -130,40 +104,14 @@ void BfsBottomUp::reset() {
 
     auto distances = d_distances;
     forAllnumV(hornet, [=] __device__ (int i){ distances[i] = INF; } );
-
-    auto next = n_next;
-    forAllnumV(hornet, [=] __device__ (int i){ next[i] = 0; } );
-    //*next_size = 0;
-    cudaMallocManaged((void**)&next_size, sizeof(dist_t));
-    *next_size = 0;
-    std::cout<<"Reset Finished"<<std::endl;
 }
 
 void BfsBottomUp::set_parameters(vid_t source) {
-std::cout << "Set Params started";
-   bfs_source = source;
-   auto parent = p_parent;
-   forAllnumV(hornet, [=] __device__ (int i){
-       if(i == bfs_source) {
-           parent[i] = bfs_source;
-       }
-       else {
-           parent[i] = -1;
-       }
-   } );
-
-   auto frontier = f_frontier;
-   forAllnumV(hornet, [=] __device__ (int i){
-       if(i == bfs_source) {
-           frontier[i] = 1;
-       }
-       else {
-           frontier[i] = 0;
-       }
-   } );
-   frontier_size = 1;
-   queue.insert(bfs_source);               // insert bfs source in the frontier
-   gpu::memsetZero(d_distances + bfs_source);  //reset source distance
+    // std::cout << "Set Params started";
+       bfs_source = source;
+       //auto parent = p_parent;
+       queue.insert(bfs_source);               // insert bfs source in the frontier
+       gpu::memsetZero(d_distances + bfs_source);  //reset source distance
 }
 /*
 void BfsBottomUp::run() {
@@ -186,37 +134,28 @@ void BfsBottomUp::run() {
     // }
 //gpu::memsetZero(d_distances + bfs_source);
 
-    while (frontier_size > 0) {
-        //std::cout<<"In while loop: "<<std::endl;
-    	forAllVertices(hornet, BFSOperator { p_parent, f_frontier, n_next, next_size, hornet.csr_offsets(), hornet.csr_edges() });
-    	//gpu::printArray(n_next, hornet.nV());
-    	auto frontier = f_frontier;
-            auto next = n_next;
-    	//dist_t tmp = 0;
-    	forAllnumV(hornet, [=] __device__ (int i){ frontier[i] = next[i]; } );
-    	//std::swap(frontier, next);
-    	forAllnumV(hornet, [=] __device__ (int i) { next[i] = 0; } );
-            //forAllnumV(hornet, [=] __device__ (int i){ frontier[i] = next[i]; } );
-            frontier_size = *next_size;
-    	std::cout<<"Frontier Size: "<<*next_size<<std::endl;
-    	//gpu::printArray(n_next, hornet.nV());
-            //gpu::printArray(p_parent, hornet.nV());
-            //forAllnumV(hornet, [=] __device__ (int i){ next[i] = 0; } );
-            *next_size = 0;
+    while(queue.size() > 0) {
+            // auto start = std::chrono::high_resolution_clock::now();
+        auto distances = d_distances;
+        forAllnumV(hornet, [=] __device__ (int i) {
+            if(distances[i] == INF) {
+                queue.insert(i);
+            }
+        });
+        queue.swap();
+        forAllVertices(hornet, queue, BFSBUOperator{d_distances, current_level, queue });
+        current_level++;
+        queue.swap();
+        std::cout<<"BU, Frontier Size: "<<queue.size()<<std::endl;
+        // auto end = std::chrono::high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    // std::cout<<"Time: "<<duration.count()<<std::endl;
     }
 }
 
 void BfsBottomUp::release() {
     gpu::free(d_distances);
-    gpu::free(p_parent);
-    gpu::free(f_frontier);
-    gpu::free(n_next);
     d_distances = nullptr;
-    p_parent = nullptr;
-    f_frontier = nullptr;
-    n_next = nullptr;
-    gpu::free(next_size);
-    next_size = nullptr;
 }
 
 bool BfsBottomUp::validate() {
@@ -231,12 +170,12 @@ bool BfsBottomUp::validate() {
     bfs.run(bfs_source);
 //std::cout<<"GPU Answer: "<<std::endl;
 //gpu::printArray(p_parent, hornet.nV());
-    auto h_parent = bfs.result();
+    auto h_distances = bfs.result();
 //std::cout<<"CPU Answer: "<<std::endl;
 //for(int i = 0; i < graph.nV(); i++) {
 //	std::cout<<" "<<h_parent[i];
 //}
-    return gpu::equal(h_parent, h_parent + graph.nV(), p_parent);
+    return gpu::equal(h_distances, h_distances + graph.nV(), d_distances);
 }
 
 } // namespace hornets_nest
