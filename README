@@ -1,0 +1,8 @@
+Follow the instructions in README.MD to build hornet and hornetsnest
+
+(All from directory hornet/hornetsnest/build
+To run Bottom Up:
+./bfs-bu <path-to-file>
+
+To run Direction Optimizing:
+./bfs-dir-opt <path-to-file>
