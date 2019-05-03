@@ -55,7 +55,7 @@ struct BFSBUOperator {
     OPERATOR(Vertex& vertex) {
     vid_t vertex_id = vertex.id();
     eoff_t start = 0, end = vertex.degree();
-        for(eoff_t i = 0; i < end; i++) {
+        for(eoff_t i = start; i < end; i++) {
             vid_t possible_parent = vertex.edge(i).dst_id();
 	//printf("In for loop, child id: %d, parent id: %d, i: %d\n", vertex_id, possible_parent, i);
             if(d_distances[possible_parent] == current_level - 1) {
